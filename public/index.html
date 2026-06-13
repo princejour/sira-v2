@@ -52,18 +52,43 @@
     }catch(e){}
   }
 
+  function restoreStudentInfoDefaults(){
+    var birthPlaceKeys=['مكان الولادة','مكانها','placeOfBirth','birthPlace','birthplace','birth_location','birthLocation','lieuNaissance','place_naissance'];
+    var fatherKeys=['اسم الأب','اسم الاب','الأب','الاب','fatherName','father','father_name','pere','nomPere'];
+    var guardianKeys=['الولي','اسم الولي','ولي','ولي الأمر','اسم ولي الأمر','guardian','guardianName','wali','parent','parentName','tuteur','responsable'];
+    function getVal(o,keys){for(var i=0;i<keys.length;i++){if(Object.prototype.hasOwnProperty.call(o,keys[i])&&String(o[keys[i]]||'').trim())return String(o[keys[i]]).trim();}return '';}
+    function setDefault(o,keys,value){var found=false;for(var i=0;i<keys.length;i++){if(Object.prototype.hasOwnProperty.call(o,keys[i])){found=true;if(!String(o[keys[i]]||'').trim())o[keys[i]]=value;}}if(!found&&keys.length)o[keys[0]]=value;}
+    function normalizeRecord(o){if(!o||typeof o!=='object'||Array.isArray(o))return;if(!getVal(o,birthPlaceKeys))setDefault(o,birthPlaceKeys,'تونس');var father=getVal(o,fatherKeys);if(father)setDefault(o,guardianKeys,father);}
+    function walk(v,depth){if(depth>8||!v)return v;if(Array.isArray(v)){v.forEach(function(x){walk(x,depth+1);});return v;}if(typeof v==='object'){normalizeRecord(v);Object.keys(v).forEach(function(k){if(v[k]&&typeof v[k]==='object')walk(v[k],depth+1);});}return v;}
+    function normalizeJsonString(text){try{var obj=JSON.parse(text);walk(obj,0);return JSON.stringify(obj);}catch(e){return text;}}
+    try{
+      var keys=['studentInfoRecords','importedStudentInfoRecords','personalStudentInfoRecords','studentsInfo','studentInfos'];
+      keys.forEach(function(k){var v=localStorage.getItem(k);if(v)localStorage.setItem(k,normalizeJsonString(v));});
+      if(!Storage.prototype.__siraV2InfoNormalizer){
+        var originalSetItem=Storage.prototype.setItem;
+        Storage.prototype.setItem=function(k,v){try{if(/student.*info|info.*student|records/i.test(String(k)))v=normalizeJsonString(v);}catch(e){}return originalSetItem.call(this,k,v);};
+        Storage.prototype.__siraV2InfoNormalizer=true;
+      }
+    }catch(e){}
+  }
+
   emptyStartup();
+  restoreStudentInfoDefaults();
+  window.__siraV2NormalizeStudentInfoNow=restoreStudentInfoDefaults;
   window.__SIRA_V2_EMPTY_IMPORT_ONLY__=true;
-  window.addEventListener('DOMContentLoaded', hideDefaultTrialLists);
-  window.addEventListener('load', function(){
+  window.addEventListener('DOMContentLoaded',function(){hideDefaultTrialLists();restoreStudentInfoDefaults();});
+  window.addEventListener('load',function(){
     setTimeout(hideDefaultTrialLists,300);
     setTimeout(hideDefaultTrialLists,1200);
     setTimeout(hideDefaultTrialLists,2500);
+    setTimeout(restoreStudentInfoDefaults,300);
+    setTimeout(restoreStudentInfoDefaults,1200);
+    setTimeout(restoreStudentInfoDefaults,2500);
   });
 })();
 <\/script>`;
 
-      if(html.includes(EMPTY_IMPORT_STAMP)) return html;
+      if(html.includes(EMPTY_IMPORT_STAMP) && html.includes('restoreStudentInfoDefaults')) return html;
       if(/<head[^>]*>/i.test(html)){
         return html.replace(/<head[^>]*>/i, function(match){ return match + guard; });
       }
