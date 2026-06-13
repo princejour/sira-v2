@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -16,10 +15,7 @@ jobs:
         run: |
           set -e
           ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root."
-            exit 1
-          fi
+          if [ -z "$ZIP_FILE" ]; then echo "No ZIP file found"; exit 1; fi
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
           echo "Found ZIP: $ZIP_FILE"
 
@@ -29,7 +25,6 @@ jobs:
           rm -rf extracted
           mkdir extracted
           unzip -q "${{ steps.find_zip.outputs.zip_file }}" -d extracted
-          echo "Extracted files:"
           find extracted -maxdepth 4 -type f | head -n 120
 
       - name: Find Android project folder
@@ -37,186 +32,107 @@ jobs:
         run: |
           set -e
           PROJECT_FILE="$(find extracted -name 'settings.gradle' -o -name 'settings.gradle.kts' | head -n 1)"
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "No Android project found. settings.gradle not found."
-            exit 1
-          fi
+          if [ -z "$PROJECT_FILE" ]; then echo "No Android project found"; exit 1; fi
           PROJECT_DIR="$(dirname "$PROJECT_FILE")"
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-          echo "Android project folder: $PROJECT_DIR"
 
-      - name: Force independent package name
+      - name: Force independent package and remove default classes at source
         run: |
           set -e
           cd "${{ steps.find_project.outputs.project_dir }}"
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          new_app_id = "com.walhero.sira.v2.independent.empty"
-          new_label = "السيرة والمواظبة مستقل"
-
-          gradle_files = list(Path('.').rglob('build.gradle')) + list(Path('.').rglob('build.gradle.kts'))
-          if not gradle_files:
-              raise SystemExit('No Gradle files found')
-
-          changed_app_gradle = False
-          for gf in gradle_files:
-              text = gf.read_text(encoding='utf-8')
-              original = text
-
-              text = re.sub(r'applicationId\s+"[^"]+"', f'applicationId "{new_app_id}"', text)
-              text = re.sub(r'applicationId\s*=\s*"[^"]+"', f'applicationId = "{new_app_id}"', text)
-              text = re.sub(r"applicationId\s+'[^']+'", f"applicationId '{new_app_id}'", text)
-
-              text = re.sub(r'namespace\s+"[^"]+"', f'namespace "{new_app_id}"', text)
-              text = re.sub(r'namespace\s*=\s*"[^"]+"', f'namespace = "{new_app_id}"', text)
-              text = re.sub(r"namespace\s+'[^']+'", f"namespace '{new_app_id}'", text)
-
-              text = re.sub(r'applicationIdSuffix\s+"[^"]*"', 'applicationIdSuffix ""', text)
-              text = re.sub(r'applicationIdSuffix\s*=\s*"[^"]*"', 'applicationIdSuffix = ""', text)
-              text = re.sub(r"applicationIdSuffix\s+'[^']*'", "applicationIdSuffix ''", text)
-
-              if gf.name in ('build.gradle', 'build.gradle.kts') and gf.parent.name == 'app':
-                  if 'applicationId' not in text and 'defaultConfig {' in text:
-                      text = text.replace('defaultConfig {', 'defaultConfig {\n        applicationId "' + new_app_id + '"', 1)
-                  if 'namespace' not in text and 'android {' in text:
-                      text = text.replace('android {', 'android {\n    namespace "' + new_app_id + '"', 1)
-                  changed_app_gradle = True
-
-              if text != original:
-                  gf.write_text(text, encoding='utf-8')
+          app_id = 'com.walhero.sira.v2.emptyimport.clean'
+          label = 'السيرة والمواظبة - استيراد فقط'
+          # Android identity: separate app, not update
+          for gf in list(Path('.').rglob('build.gradle')) + list(Path('.').rglob('build.gradle.kts')):
+              s = gf.read_text(encoding='utf-8')
+              original = s
+              s = re.sub(r'applicationId\s+"[^"]+"', f'applicationId "{app_id}"', s)
+              s = re.sub(r'applicationId\s*=\s*"[^"]+"', f'applicationId = "{app_id}"', s)
+              s = re.sub(r"applicationId\s+'[^']+'", f"applicationId '{app_id}'", s)
+              s = re.sub(r'namespace\s+"[^"]+"', f'namespace "{app_id}"', s)
+              s = re.sub(r'namespace\s*=\s*"[^"]+"', f'namespace = "{app_id}"', s)
+              s = re.sub(r"namespace\s+'[^']+'", f"namespace '{app_id}'", s)
+              if gf.name in ('build.gradle','build.gradle.kts') and gf.parent.name == 'app':
+                  if 'applicationId' not in s and 'defaultConfig {' in s:
+                      s = s.replace('defaultConfig {', 'defaultConfig {\n        applicationId "'+app_id+'"', 1)
+                  if 'namespace' not in s and 'android {' in s:
+                      s = s.replace('android {', 'android {\n    namespace "'+app_id+'"', 1)
+                  s = re.sub(r'versionCode\s+\d+', 'versionCode 201', s)
+                  s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 201', s)
+                  s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-2.0"', s)
+                  s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-2.0"', s)
+                  s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-2.0'", s)
+              if s != original:
+                  gf.write_text(s, encoding='utf-8')
                   print('Updated', gf)
-
           for mf in Path('.').rglob('AndroidManifest.xml'):
               s = mf.read_text(encoding='utf-8')
-              original = s
-              s = re.sub(r'package="[^"]+"', f'package="{new_app_id}"', s)
-              s = re.sub(r'android:label="[^"]+"', f'android:label="{new_label}"', s, count=1)
-              if s != original:
-                  mf.write_text(s, encoding='utf-8')
-                  print('Updated', mf)
-
+              s = re.sub(r'package="[^"]+"', f'package="{app_id}"', s)
+              s = re.sub(r'android:label="[^"]+"', f'android:label="{label}"', s, count=1)
+              mf.write_text(s, encoding='utf-8')
           for sp in Path('.').rglob('strings.xml'):
               s = sp.read_text(encoding='utf-8')
-              original = s
-              if '<string name="app_name"' in s:
-                  s = re.sub(r'<string name="app_name">.*?</string>', f'<string name="app_name">{new_label}</string>', s)
-              if s != original:
-                  sp.write_text(s, encoding='utf-8')
-                  print('Updated', sp)
-
-          if not changed_app_gradle:
-              raise SystemExit('app/build.gradle or app/build.gradle.kts not found')
-
-          print('Independent app id forced:', new_app_id)
-          print('Independent app label:', new_label)
-          PY
-
-      - name: Make app import-only without default classes
-        run: |
-          set -e
-          cd "${{ steps.find_project.outputs.project_dir }}"
-          python3 - <<'PY'
-          from pathlib import Path
-
-          patch = r'''
-<script id="SIRA_V2_INDEPENDENT_EMPTY_IMPORT_PATCH">
-(function(){
-  const PATCH_MARK = 'SIRA_V2_INDEPENDENT_EMPTY_IMPORT_PATCH_ACTIVE';
-  function toast(msg, type){
-    try { if (typeof showToast === 'function') showToast(msg, type || 'info'); }
-    catch(e) {}
-  }
-  function norm(name){
-    try { if (typeof normalizeClassNameForStorage === 'function') return normalizeClassNameForStorage(name); }
-    catch(e) {}
-    return String(name || '').trim();
-  }
-  function getImported(){
-    try { if (typeof getPersonalClasses === 'function') return getPersonalClasses() || {}; }
-    catch(e) {}
-    try { return JSON.parse(localStorage.getItem('personalClasses') || '{}') || {}; }
-    catch(e) { return {}; }
-  }
-  function saveImported(obj){
-    try { if (typeof savePersonalClasses === 'function') return savePersonalClasses(obj || {}); }
-    catch(e) {}
-    try { localStorage.setItem('personalClasses', JSON.stringify(obj || {})); }
-    catch(e) {}
-  }
-  function applyOnlyImported(){
-    try {
-      const imported = getImported();
-      if (window.data && typeof window.data === 'object') {
-        Object.keys(window.data).forEach(function(k){ delete window.data[k]; });
-        Object.keys(imported || {}).forEach(function(className){
-          const ck = norm(className);
-          if (!ck) return;
-          if (!Array.isArray(imported[className])) return;
-          window.data[ck] = [];
-          imported[className].forEach(function(student){
-            student = String(student || '').trim();
-            if (student && window.data[ck].indexOf(student) === -1) window.data[ck].push(student);
-          });
-        });
-      }
-      try { if (typeof applyStudentRenamesToData === 'function') applyStudentRenamesToData(); } catch(e) {}
-      try { if (typeof refreshClassSelectOptions === 'function') refreshClassSelectOptions(Object.keys(imported || {})[0] || ''); } catch(e) {}
-      try { if (typeof resetDashboard === 'function') resetDashboard(); } catch(e) {}
-      try { if (typeof renderStudentsList === 'function') renderStudentsList(); } catch(e) {}
-      try { if (typeof renderPersonalClassesList === 'function') renderPersonalClassesList(); } catch(e) {}
-    } catch(e) { console.warn('empty import patch error', e); }
-  }
-  window.replaceDataWithPersonalClasses = applyOnlyImported;
-  window.saveImportedPersonalClasses = function(personal){
-    const clean = {};
-    Object.keys(personal || {}).forEach(function(className){
-      const ck = norm(className);
-      if (!ck || !Array.isArray(personal[className])) return;
-      clean[ck] = [];
-      personal[className].forEach(function(student){
-        student = String(student || '').trim();
-        if (student && clean[ck].indexOf(student) === -1) clean[ck].push(student);
-      });
-    });
-    saveImported(clean);
-    applyOnlyImported();
-    try { if (typeof clearImportedClassesFile === 'function') clearImportedClassesFile(); } catch(e) {}
-    toast('تم استبدال الأقسام القديمة بالأقسام المستوردة فقط', 'success');
-  };
-  window.clearAllPersonalClasses = function(){
-    if (!confirm('هل تريد مسح كل الأقسام من هذا التطبيق المستقل؟')) return;
-    saveImported({});
-    applyOnlyImported();
-    toast('تم مسح كل الأقسام. يمكنك الآن استيراد CSV جديد', 'info');
-  };
-  try { localStorage.setItem(PATCH_MARK, '1'); } catch(e) {}
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyOnlyImported);
-  setTimeout(applyOnlyImported, 0);
-  setTimeout(applyOnlyImported, 500);
-  setTimeout(applyOnlyImported, 1500);
-})();
-</script>
-'''
-
+              s = re.sub(r'<string name="app_name">.*?</string>', f'<string name="app_name">{label}</string>', s)
+              sp.write_text(s, encoding='utf-8')
+          # HTML source correction: no default classes, imports replace not merge
           patched = 0
           for html in Path('.').rglob('*.html'):
               s = html.read_text(encoding='utf-8')
-              if 'SIRA_V2_INDEPENDENT_EMPTY_IMPORT_PATCH' in s:
+              if 'ORIGINAL_DEFAULT_CLASSES' not in s or 'function saveImportedPersonalClasses' not in s:
                   continue
-              if '</body>' in s:
-                  s = s.replace('</body>', patch + '\n</body>', 1)
-              elif '</html>' in s:
-                  s = s.replace('</html>', patch + '\n</html>', 1)
-              else:
-                  s += '\n' + patch + '\n'
+              s = re.sub(r'<option value="9">8 أساسي 9</option><option value="8">8 أساسي 8</option><option value="7">8 أساسي 7</option><option value="6">8 أساسي 6</option>', '', s)
+              s = s.replace('const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));', 'const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);')
+              s = re.sub(r'function replaceDataWithPersonalClasses\(\)\{.*?\n\}\nfunction getClassLabel', '''function replaceDataWithPersonalClasses(){
+    const personal = getPersonalClasses();
+    Object.keys(data).forEach(k => delete data[k]);
+    Object.keys(personal || {}).forEach(k => {
+        if(!Array.isArray(personal[k]) || personal[k].length === 0) return;
+        const classKey = normalizeClassNameForStorage(k);
+        if(!data[classKey]) data[classKey] = [];
+        personal[k].forEach(studentName => {
+            if(studentName && !data[classKey].includes(studentName)) data[classKey].push(studentName);
+        });
+    });
+    applyStudentRenamesToData();
+}
+function getClassLabel''', s, flags=re.S)
+              s = re.sub(r'function saveImportedPersonalClasses\(personal\)\{.*?\n\}\nfunction importPersonalClassesFile', '''function saveImportedPersonalClasses(personal){
+    const keys = Object.keys(personal || {});
+    if(keys.length === 0){
+        showToast('لم يتم العثور على أقسام وتلاميذ داخل الملف. تأكد من وجود عمود: القسم وعمود: اسم التلميذ','info');
+        return;
+    }
+    const saved = {};
+    keys.forEach(className => {
+        if(!Array.isArray(personal[className])) return;
+        const classKey = normalizeClassNameForStorage(className);
+        if(!saved[classKey]) saved[classKey] = [];
+        personal[className].forEach(studentName => {
+            if(studentName && !saved[classKey].includes(studentName)) saved[classKey].push(studentName);
+        });
+    });
+    savePersonalClasses(saved);
+    saveImportedStudentInfoRecords();
+    replaceDataWithPersonalClasses();
+    refreshClassSelectOptions(Object.keys(saved)[0] || '');
+    resetDashboard();
+    renderStudentsList();
+    renderPersonalClassesList();
+    clearImportedClassesFile();
+    showToast('تم استبدال كل الأقسام القديمة بالأقسام المستوردة فقط','success');
+}
+function importPersonalClassesFile''', s, flags=re.S)
+              s = s.replace('setTimeout(autoRestoreWhenEmpty, 1400);', '// Auto restore disabled in empty-import build\n    // setTimeout(autoRestoreWhenEmpty, 1400);')
+              if 'EMPTY_IMPORT_NO_DEFAULT_CLASSES_FIXED_V2' not in s:
+                  s = s.replace('</head>', '<!-- EMPTY_IMPORT_NO_DEFAULT_CLASSES_FIXED_V2 --></head>') if '</head>' in s else '<!-- EMPTY_IMPORT_NO_DEFAULT_CLASSES_FIXED_V2 -->\n' + s
               html.write_text(s, encoding='utf-8')
               patched += 1
-              print('Patched import-only behavior in', html)
-
+              print('Patched HTML at source:', html)
           if patched == 0:
-              raise SystemExit('No HTML files found to patch')
+              raise SystemExit('No app HTML was patched; default classes remain')
           PY
 
       - name: Set up JDK 17
@@ -234,29 +150,20 @@ jobs:
         run: |
           set -e
           cd "${{ steps.find_project.outputs.project_dir }}"
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug
-          else
-            gradle assembleDebug
-          fi
+          if [ -f ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleDebug; else gradle assembleDebug; fi
 
       - name: Verify independent APK package
         run: |
           set -e
           cd "${{ steps.find_project.outputs.project_dir }}"
           APK_FILE="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
-          echo "APK: $APK_FILE"
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -n 1)"
           BADGING="$($AAPT dump badging "$APK_FILE")"
           echo "$BADGING" | head -n 5
-          echo "$BADGING" | grep "package: name='com.walhero.sira.v2.independent.empty'" || {
-            echo "ERROR: APK is not independent. Package name was not changed."
-            exit 1
-          }
+          echo "$BADGING" | grep "package: name='com.walhero.sira.v2.emptyimport.clean'" || { echo "ERROR: wrong package"; exit 1; }
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sira-v2-independent-empty-import-apk
+          name: sira-v2-empty-import-no-defaults-apk
           path: ${{ steps.find_project.outputs.project_dir }}/app/build/outputs/apk/**/*.apk
