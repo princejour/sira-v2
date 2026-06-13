@@ -107,6 +107,11 @@
       );
 
       html = html.replace(
+        /savePersonalClasses\(saved\);/,
+        "savePersonalClasses(saved);\n    try{ localStorage.setItem('importedPersonalClasses', JSON.stringify(saved)); localStorage.setItem('personalClasses', JSON.stringify(saved)); }catch(e){}"
+      );
+
+      html = html.replace(
         'setTimeout(autoRestoreWhenEmpty, 1400);',
         '// Auto restore disabled in Firebase empty-import web build\n    // setTimeout(autoRestoreWhenEmpty, 1400);'
       );
