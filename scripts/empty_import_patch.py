@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_03'
+STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_04'
 
 
 def inject_empty_guard(html_text: str) -> str:
@@ -47,7 +47,13 @@ def inject_empty_guard(html_text: str) -> str:
     if STAMP in html_text:
         return html_text
     if re.search(r'<head[^>]*>', html_text, flags=re.I):
-        return re.sub(r'(<head[^>]*>)', r'\1' + guard, html_text, count=1, flags=re.I)
+        return re.sub(
+            r'(<head[^>]*>)',
+            lambda match: match.group(1) + guard,
+            html_text,
+            count=1,
+            flags=re.I,
+        )
     return guard + html_text
 
 
