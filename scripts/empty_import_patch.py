@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_04'
+STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_05'
 
 
 def inject_empty_guard(html_text: str) -> str:
@@ -40,7 +40,7 @@ def inject_empty_guard(html_text: str) -> str:
         '    var birthPlaceKeys = [\'مكان الولادة\',\'مكانها\',\'placeOfBirth\',\'birthPlace\',\'birthplace\',\'birth_location\',\'birthLocation\',\'lieuNaissance\',\'place_naissance\'];',
         '    var fatherKeys = [\'اسم الأب\',\'اسم الاب\',\'الأب\',\'الاب\',\'fatherName\',\'father\',\'father_name\',\'pere\',\'nomPere\'];',
         '    var guardianKeys = [\'الولي\',\'اسم الولي\',\'ولي\',\'ولي الأمر\',\'اسم ولي الأمر\',\'guardian\',\'guardianName\',\'wali\',\'parent\',\'parentName\',\'tuteur\',\'responsable\'];',
-        '    function getVal(o, keys){ for(var i=0;i<keys.length;i++){ if(Object.prototype.hasOwnProperty.call(o, keys[i]) && String(o[keys[i]]||\'\').trim()) return String(o[keys[i]]).trim(); } return \"\"; }',
+        '    function getVal(o, keys){ for(var i=0;i<keys.length;i++){ if(Object.prototype.hasOwnProperty.call(o, keys[i]) && String(o[keys[i]]||\'\').trim()) return String(o[keys[i]]).trim(); } return ""; }',
         '    function setDefault(o, keys, value){',
         '      var found = false;',
         '      for(var i=0;i<keys.length;i++){',
@@ -49,15 +49,15 @@ def inject_empty_guard(html_text: str) -> str:
         '      if(!found && keys.length) o[keys[0]] = value;',
         '    }',
         '    function normalizeRecord(o){',
-        '      if(!o || typeof o !== \"object\" || Array.isArray(o)) return;',
-        '      if(!getVal(o, birthPlaceKeys)) setDefault(o, birthPlaceKeys, \"تونس\");',
+        '      if(!o || typeof o !== "object" || Array.isArray(o)) return;',
+        '      if(!getVal(o, birthPlaceKeys)) setDefault(o, birthPlaceKeys, "تونس");',
         '      var father = getVal(o, fatherKeys);',
         '      if(father) setDefault(o, guardianKeys, father);',
         '    }',
         '    function walk(v, depth){',
         '      if(depth > 8 || !v) return v;',
         '      if(Array.isArray(v)){ v.forEach(function(x){ walk(x, depth+1); }); return v; }',
-        '      if(typeof v === \"object\"){ normalizeRecord(v); Object.keys(v).forEach(function(k){ if(v[k] && typeof v[k] === \"object\") walk(v[k], depth+1); }); }',
+        '      if(typeof v === "object"){ normalizeRecord(v); Object.keys(v).forEach(function(k){ if(v[k] && typeof v[k] === "object") walk(v[k], depth+1); }); }',
         '      return v;',
         '    }',
         '    function normalizeJsonString(text){',
@@ -152,6 +152,10 @@ function getClassLabel''',
         });
     });
     savePersonalClasses(saved);
+    try{
+        localStorage.setItem('importedPersonalClasses', JSON.stringify(saved));
+        localStorage.setItem('personalClasses', JSON.stringify(saved));
+    }catch(e){}
     saveImportedStudentInfoRecords();
     if(window.__siraV2NormalizeStudentInfoNow) window.__siraV2NormalizeStudentInfoNow();
     replaceDataWithPersonalClasses();
@@ -185,11 +189,11 @@ def bump_gradle_version(root: Path) -> None:
         s = gf.read_text(encoding='utf-8', errors='ignore')
         original = s
         if gf.parent.name == 'app':
-            s = re.sub(r'versionCode\s+\d+', 'versionCode 203', s)
-            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 203', s)
-            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v3-infofix"', s)
-            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v3-infofix"', s)
-            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v3-infofix'", s)
+            s = re.sub(r'versionCode\s+\d+', 'versionCode 204', s)
+            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 204', s)
+            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v4-firebase-all-classes"', s)
+            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v4-firebase-all-classes"', s)
+            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v4-firebase-all-classes'", s)
         if s != original:
             gf.write_text(s, encoding='utf-8')
             print('Updated Gradle version:', gf)
