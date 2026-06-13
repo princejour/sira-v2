@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_05'
+STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_06'
 
 
 def inject_empty_guard(html_text: str) -> str:
@@ -37,22 +37,20 @@ def inject_empty_guard(html_text: str) -> str:
         '    }catch(e){}',
         '  }',
         '  function restoreStudentInfoDefaults(){',
-        '    var birthPlaceKeys = [\'مكان الولادة\',\'مكانها\',\'placeOfBirth\',\'birthPlace\',\'birthplace\',\'birth_location\',\'birthLocation\',\'lieuNaissance\',\'place_naissance\'];',
-        '    var fatherKeys = [\'اسم الأب\',\'اسم الاب\',\'الأب\',\'الاب\',\'fatherName\',\'father\',\'father_name\',\'pere\',\'nomPere\'];',
-        '    var guardianKeys = [\'الولي\',\'اسم الولي\',\'ولي\',\'ولي الأمر\',\'اسم ولي الأمر\',\'guardian\',\'guardianName\',\'wali\',\'parent\',\'parentName\',\'tuteur\',\'responsable\'];',
+        '    var birthPlaceKeys = [\'مكان الولادة\',\'مكانها\',\'مكان الازدياد\',\'مكان الميلاد\',\'مكان الولادة ومكانها\',\'placeOfBirth\',\'birthPlace\',\'birthplace\',\'birth_location\',\'birthLocation\',\'lieuNaissance\',\'lieu_naissance\',\'place_naissance\'];',
+        '    var fatherKeys = [\'اسم الأب\',\'اسم الاب\',\'إسم الأب\',\'إسم الاب\',\'الأب\',\'الاب\',\'الأب أو الولي\',\'اسم الأب أو الولي\',\'fatherName\',\'father\',\'father_name\',\'pere\',\'père\',\'nomPere\',\'nom_pere\'];',
+        '    var guardianKeys = [\'الولي\',\'اسم الولي\',\'ولي\',\'ولي الأمر\',\'اسم ولي الأمر\',\'الأب أو الولي\',\'اسم الأب أو الولي\',\'guardian\',\'guardianName\',\'guardian_name\',\'wali\',\'parent\',\'parentName\',\'parent_name\',\'tuteur\',\'responsable\'];',
         '    function getVal(o, keys){ for(var i=0;i<keys.length;i++){ if(Object.prototype.hasOwnProperty.call(o, keys[i]) && String(o[keys[i]]||\'\').trim()) return String(o[keys[i]]).trim(); } return ""; }',
-        '    function setDefault(o, keys, value){',
-        '      var found = false;',
+        '    function setAllDefaults(o, keys, value){',
         '      for(var i=0;i<keys.length;i++){',
-        '        if(Object.prototype.hasOwnProperty.call(o, keys[i])){ found = true; if(!String(o[keys[i]]||\'\').trim()) o[keys[i]] = value; }',
+        '        if(!String(o[keys[i]]||\'\').trim()) o[keys[i]] = value;',
         '      }',
-        '      if(!found && keys.length) o[keys[0]] = value;',
         '    }',
         '    function normalizeRecord(o){',
         '      if(!o || typeof o !== "object" || Array.isArray(o)) return;',
-        '      if(!getVal(o, birthPlaceKeys)) setDefault(o, birthPlaceKeys, "تونس");',
+        '      if(!getVal(o, birthPlaceKeys)) setAllDefaults(o, birthPlaceKeys, "تونس");',
         '      var father = getVal(o, fatherKeys);',
-        '      if(father) setDefault(o, guardianKeys, father);',
+        '      if(father) setAllDefaults(o, guardianKeys, father);',
         '    }',
         '    function walk(v, depth){',
         '      if(depth > 8 || !v) return v;',
@@ -64,12 +62,14 @@ def inject_empty_guard(html_text: str) -> str:
         '      try{ var obj = JSON.parse(text); walk(obj, 0); return JSON.stringify(obj); }catch(e){ return text; }',
         '    }',
         '    try{',
-        '      var keys = [\'studentInfoRecords\',\'importedStudentInfoRecords\',\'personalStudentInfoRecords\',\'studentsInfo\',\'studentInfos\'];',
+        '      var keys = [];',
+        '      for(var i=0;i<localStorage.length;i++){ var k = localStorage.key(i); if(/student|record|info|card|sira|تلميذ|تلاميذ/i.test(String(k))) keys.push(k); }',
+        '      [\'studentInfoRecords\',\'importedStudentInfoRecords\',\'personalStudentInfoRecords\',\'studentsInfo\',\'studentInfos\'].forEach(function(k){ if(keys.indexOf(k)===-1) keys.push(k); });',
         '      keys.forEach(function(k){ var v = localStorage.getItem(k); if(v) localStorage.setItem(k, normalizeJsonString(v)); });',
         '      if(!Storage.prototype.__siraV2InfoNormalizer){',
         '        var originalSetItem = Storage.prototype.setItem;',
         '        Storage.prototype.setItem = function(k, v){',
-        '          try{ if(/student.*info|info.*student|records/i.test(String(k))) v = normalizeJsonString(v); }catch(e){}',
+        '          try{ if(/student|record|info|card|sira|تلميذ|تلاميذ/i.test(String(k))) v = normalizeJsonString(v); }catch(e){}',
         '          return originalSetItem.call(this, k, v);',
         '        };',
         '        Storage.prototype.__siraV2InfoNormalizer = true;',
@@ -78,14 +78,15 @@ def inject_empty_guard(html_text: str) -> str:
         '  }',
         '  clearOnceAfterInstall();',
         '  restoreStudentInfoDefaults();',
+        '  window.__siraV2NormalizeStudentInfoNow = restoreStudentInfoDefaults;',
         '  window.__SIRA_V2_EMPTY_IMPORT_ONLY__ = true;',
         "  window.addEventListener('DOMContentLoaded', function(){ removeDefaultClassOptions(); restoreStudentInfoDefaults(); });",
-        "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); setTimeout(restoreStudentInfoDefaults, 300); setTimeout(restoreStudentInfoDefaults, 1200); });",
+        "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); setTimeout(restoreStudentInfoDefaults, 300); setTimeout(restoreStudentInfoDefaults, 1200); setTimeout(restoreStudentInfoDefaults, 2500); });",
         '})();',
         '</script>',
     ]
     guard = '\n'.join(guard_lines)
-    if STAMP in html_text and 'restoreStudentInfoDefaults' in html_text:
+    if STAMP in html_text and 'setAllDefaults' in html_text:
         return html_text
     if re.search(r'<head[^>]*>', html_text, flags=re.I):
         return re.sub(
@@ -189,11 +190,11 @@ def bump_gradle_version(root: Path) -> None:
         s = gf.read_text(encoding='utf-8', errors='ignore')
         original = s
         if gf.parent.name == 'app':
-            s = re.sub(r'versionCode\s+\d+', 'versionCode 204', s)
-            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 204', s)
-            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v4-firebase-all-classes"', s)
-            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v4-firebase-all-classes"', s)
-            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v4-firebase-all-classes'", s)
+            s = re.sub(r'versionCode\s+\d+', 'versionCode 205', s)
+            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 205', s)
+            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v5-card-defaults"', s)
+            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v5-card-defaults"', s)
+            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v5-card-defaults'", s)
         if s != original:
             gf.write_text(s, encoding='utf-8')
             print('Updated Gradle version:', gf)
