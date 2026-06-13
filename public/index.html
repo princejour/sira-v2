@@ -5,110 +5,36 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>منظومة السيرة والمواظبة V2</title>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <style>
-    body{margin:0;font-family:Tahoma,Arial;background:#f8fafc;color:#0f172a}
-    #m{padding:28px;text-align:center;font-weight:bold;line-height:1.9}
-    iframe{border:0;width:100vw;height:100vh;display:block;background:#fff}
-  </style>
+  <style>body{margin:0;font-family:Tahoma,Arial;background:#f8fafc;color:#0f172a}#m{padding:28px;text-align:center;font-weight:bold;line-height:1.9}iframe{border:0;width:100vw;height:100vh;display:block;background:#fff}</style>
 </head>
 <body>
   <div id="m">جاري فتح منظومة السيرة والمواظبة...</div>
-
   <script>
-    const EMPTY_IMPORT_STAMP = 'SIRA_V2_WEB_EMPTY_IMPORT_20260613_02';
-
-    function injectEmptyStartupGuard(html){
-      const guard = `
+    const STAMP='SIRA_V2_WEB_RICH_IMPORT_20260613_01';
+    function injectedGuard(){return `
 <script>
 (function(){
-  var stamp='${EMPTY_IMPORT_STAMP}';
-  var stampKey='__sira_v2_web_empty_import_stamp__';
-  function emptyStartup(){
-    try{
-      if(localStorage.getItem(stampKey)!==stamp){
-        localStorage.clear();
-        sessionStorage.clear();
-        localStorage.setItem(stampKey, stamp);
-        localStorage.setItem('personalClasses', '{}');
-        localStorage.setItem('importedPersonalClasses', '{}');
-        localStorage.setItem('studentInfoRecords', '[]');
-        localStorage.setItem('importedStudentInfoRecords', '[]');
-      }
-    }catch(e){}
-  }
-  function hideDefaultTrialLists(){
-    try{
-      var forbidden=/8\\s*أساسي\\s*(6|7|8|9)|الصف\\s*العاشر|تجريبي|افتراضي/i;
-      document.querySelectorAll('option').forEach(function(opt){var text=(opt.textContent||'')+' '+(opt.value||'');if(forbidden.test(text)) opt.remove();});
-      document.querySelectorAll('[data-class], .class-card, .student-row, .student-item').forEach(function(el){var text=el.textContent||'';if(forbidden.test(text)) el.remove();});
-    }catch(e){}
-  }
-  function restoreStudentInfoDefaults(){
-    var birthPlaceKeys=['مكان الولادة','مكانها','مكان الازدياد','مكان الميلاد','placeOfBirth','birthPlace','birthplace','birth_location','birthLocation','lieuNaissance','lieu_naissance','place_naissance'];
-    var fatherKeys=['اسم الأب','اسم الاب','إسم الأب','إسم الاب','الأب','الاب','الأب أو الولي','اسم الأب أو الولي','fatherName','father','father_name','pere','nomPere','nom_pere'];
-    var guardianKeys=['الولي','اسم الولي','ولي','ولي الأمر','اسم ولي الأمر','الأب أو الولي','اسم الأب أو الولي','guardian','guardianName','guardian_name','wali','parent','parentName','parent_name','tuteur','responsable'];
-    function getVal(o,keys){for(var i=0;i<keys.length;i++){if(Object.prototype.hasOwnProperty.call(o,keys[i])&&String(o[keys[i]]||'').trim())return String(o[keys[i]]).trim();}return '';}
-    function setAllDefaults(o,keys,value){for(var i=0;i<keys.length;i++){if(!String(o[keys[i]]||'').trim())o[keys[i]]=value;}}
-    function normalizeRecord(o){if(!o||typeof o!=='object'||Array.isArray(o))return;if(!getVal(o,birthPlaceKeys))setAllDefaults(o,birthPlaceKeys,'تونس');var father=getVal(o,fatherKeys);if(father)setAllDefaults(o,guardianKeys,father);}
-    function walk(v,depth){if(depth>8||!v)return v;if(Array.isArray(v)){v.forEach(function(x){walk(x,depth+1);});return v;}if(typeof v==='object'){normalizeRecord(v);Object.keys(v).forEach(function(k){if(v[k]&&typeof v[k]==='object')walk(v[k],depth+1);});}return v;}
-    function normalizeJsonString(text){try{var obj=JSON.parse(text);walk(obj,0);return JSON.stringify(obj);}catch(e){return text;}}
-    try{
-      var keys=['studentInfoRecords','importedStudentInfoRecords','personalStudentInfoRecords','studentsInfo','studentInfos'];
-      keys.forEach(function(k){var v=localStorage.getItem(k);if(v)localStorage.setItem(k,normalizeJsonString(v));});
-      if(!Storage.prototype.__siraV2InfoNormalizer){
-        var originalSetItem=Storage.prototype.setItem;
-        Storage.prototype.setItem=function(k,v){try{if(/student.*info|info.*student|records/i.test(String(k)))v=normalizeJsonString(v);}catch(e){}return originalSetItem.call(this,k,v);};
-        Storage.prototype.__siraV2InfoNormalizer=true;
-      }
-    }catch(e){}
-  }
-  emptyStartup();
-  restoreStudentInfoDefaults();
-  window.__siraV2NormalizeStudentInfoNow=restoreStudentInfoDefaults;
-  window.__SIRA_V2_EMPTY_IMPORT_ONLY__=true;
-  window.addEventListener('DOMContentLoaded',function(){hideDefaultTrialLists();restoreStudentInfoDefaults();});
-  window.addEventListener('load',function(){setTimeout(hideDefaultTrialLists,300);setTimeout(hideDefaultTrialLists,1200);setTimeout(hideDefaultTrialLists,2500);setTimeout(restoreStudentInfoDefaults,300);setTimeout(restoreStudentInfoDefaults,1200);setTimeout(restoreStudentInfoDefaults,2500);});
+var mark='SIRA_V2_WEB_RICH_IMPORT_20260613_01';
+function n(s){return String(s||'').replace(/[\\u064B-\\u065F\\u0670]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\\s+/g,'').toLowerCase();}
+function ix(h,a){var hh=h.map(n);for(var j=0;j<a.length;j++){var x=n(a[j]);for(var i=0;i<hh.length;i++){if(hh[i]===x||hh[i].indexOf(x)>=0||x.indexOf(hh[i])>=0)return i;}}return -1;}
+function c(r,i){return i>=0?String(r[i]||'').trim():'';}
+function rec(cls,name,id,bd,bp,fa){bp=(bp||'').trim()||'تونس';fa=(fa||'').trim();return {'القسم':cls,'className':cls,'اسم التلميذ':name,'الاسم واللقب':name,'name':name,'studentName':name,'المعرف الوحيد':id,'uniqueId':id,'studentId':id,'تاريخ الولادة':bd,'birthDate':bd,'مكان الولادة':bp,'مكانها':bp,'مكان الميلاد':bp,'مكان الازدياد':bp,'birthPlace':bp,'placeOfBirth':bp,'اسم الأب':fa,'اسم الاب':fa,'الأب':fa,'الاب':fa,'fatherName':fa,'father':fa,'الولي':fa,'اسم الولي':fa,'ولي الأمر':fa,'guardianName':fa,'guardian':fa,'parentName':fa};}
+function parse(aoa){if(!aoa||!aoa.length)return null;var h=(aoa[0]||[]).map(function(x){return String(x||'').trim();});var ic=ix(h,['القسم','قسم','class','classe']);var iname=ix(h,['اسم التلميذ','الاسم واللقب','الإسم واللقب','اسم ولقب','name','studentName']);if(ic<0||iname<0)return null;var iid=ix(h,['المعرف الوحيد','معرف وحيد','uniqueId','identifiant unique']);var ibd=ix(h,['تاريخ الولادة','تاريخ الميلاد','birthDate','date naissance']);var ibp=ix(h,['مكان الولادة','مكان الميلاد','مكان الازدياد','مكانها','birthPlace','placeOfBirth','lieu naissance']);var ifa=ix(h,['اسم الأب','اسم الاب','الأب','الاب','fatherName','nom pere']);var p={},rs=[];for(var r=1;r<aoa.length;r++){var row=aoa[r]||[],cls=c(row,ic),name=c(row,iname);if(!cls||!name)continue;if(!p[cls])p[cls]=[];if(p[cls].indexOf(name)<0)p[cls].push(name);rs.push(rec(cls,name,c(row,iid),c(row,ibd),c(row,ibp),c(row,ifa)));}return Object.keys(p).length?{p:p,rs:rs}:null;}
+function save(o){var p=o.p,rs=o.rs;try{if(typeof savePersonalClasses==='function')savePersonalClasses(p);}catch(e){}try{localStorage.setItem('personalClasses',JSON.stringify(p));localStorage.setItem('importedPersonalClasses',JSON.stringify(p));}catch(e){}var by={};rs.forEach(function(r){by[r['الاسم واللقب']]=r;by[r['القسم']+'|'+r['الاسم واللقب']]=r;});['studentInfoRecords','importedStudentInfoRecords','personalStudentInfoRecords','studentsInfo','studentInfos'].forEach(function(k){try{localStorage.setItem(k,JSON.stringify(rs));}catch(e){}});['studentInfoByName','studentInfosByName','studentCards','studentCardsByName','siraStudentInfo'].forEach(function(k){try{localStorage.setItem(k,JSON.stringify(by));}catch(e){}});try{if(typeof replaceDataWithPersonalClasses==='function')replaceDataWithPersonalClasses();}catch(e){}try{if(typeof refreshClassSelectOptions==='function')refreshClassSelectOptions(Object.keys(p)[0]||'');}catch(e){}try{if(typeof renderStudentsList==='function')renderStudentsList();}catch(e){}try{if(typeof renderPersonalClassesList==='function')renderPersonalClassesList();}catch(e){}try{if(typeof clearImportedClassesFile==='function')clearImportedClassesFile();}catch(e){}try{if(typeof showToast==='function')showToast('تم استيراد الأقسام ومعطيات بطاقة السيرة بنجاح','success');}catch(e){alert('تم استيراد الأقسام ومعطيات بطاقة السيرة بنجاح');}}
+function rich(){var input=document.querySelector('input[type=file]'),f=input&&input.files&&input.files[0];if(!f||!window.XLSX)return false;var reader=new FileReader();reader.onload=function(ev){try{var wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]],aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}),o=parse(aoa);if(o)save(o);else if(window.__oldImport)window.__oldImport();}catch(e){if(window.__oldImport)window.__oldImport();}};reader.readAsArrayBuffer(f);return true;}
+function install(){if(window.__richImportOn)return;window.__richImportOn=true;window.__oldImport=window.importPersonalClassesFile;window.importPersonalClassesFile=function(){if(rich())return;if(window.__oldImport)return window.__oldImport.apply(this,arguments);};try{importPersonalClassesFile=window.importPersonalClassesFile;}catch(e){}document.addEventListener('click',function(ev){var t=(ev.target&&ev.target.textContent)||'';if(/استيراد وحفظ|استيراد/.test(t)){if(rich()){ev.preventDefault();ev.stopPropagation();}}},true);}
+install();setTimeout(install,500);setTimeout(install,1500);
 })();
-<\/script>`;
-      if(html.includes(EMPTY_IMPORT_STAMP) && html.includes('setAllDefaults')) return html;
-      if(/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, function(match){ return match + guard; });
-      return guard + html;
-    }
-
+<\/script>`;}
     function patchHtmlSource(html){
-      html = html.replace(/<option\s+value="9">\s*8\s*أساسي\s*9\s*<\/option>\s*<option\s+value="8">\s*8\s*أساسي\s*8\s*<\/option>\s*<option\s+value="7">\s*8\s*أساسي\s*7\s*<\/option>\s*<option\s+value="6">\s*8\s*أساسي\s*6\s*<\/option>/gi,'');
-      html = html.replace('const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));','const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);');
-      html = html.replace(/savePersonalClasses\(saved\);/,"savePersonalClasses(saved);\n    try{ localStorage.setItem('importedPersonalClasses', JSON.stringify(saved)); localStorage.setItem('personalClasses', JSON.stringify(saved)); }catch(e){}");
-      html = html.replace(/saveImportedStudentInfoRecords\(\);/,"saveImportedStudentInfoRecords();\n    if(window.__siraV2NormalizeStudentInfoNow) window.__siraV2NormalizeStudentInfoNow();");
-      html = html.replace('setTimeout(autoRestoreWhenEmpty, 1400);','// Auto restore disabled in Firebase empty-import web build\n    // setTimeout(autoRestoreWhenEmpty, 1400);');
-      return injectEmptyStartupGuard(html);
+      if(!html.includes(STAMP)){html=html.replace(/<head[^>]*>/i,function(m){return m+injectedGuard();});}
+      html=html.replace(/<option\s+value="9">\s*8\s*أساسي\s*9\s*<\/option>\s*<option\s+value="8">\s*8\s*أساسي\s*8\s*<\/option>\s*<option\s+value="7">\s*8\s*أساسي\s*7\s*<\/option>\s*<option\s+value="6">\s*8\s*أساسي\s*6\s*<\/option>/gi,'');
+      html=html.replace('const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));','const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);');
+      html=html.replace('setTimeout(autoRestoreWhenEmpty, 1400);','// Auto restore disabled\n    // setTimeout(autoRestoreWhenEmpty, 1400);');
+      return html;
     }
-
-    async function fetchLatestZipPath(){
-      const api='https://api.github.com/repos/princejour/sira-v2/git/trees/main?recursive=1';
-      const res=await fetch(api);
-      if(!res.ok) throw new Error('تعذر الاتصال بمستودع sira-v2');
-      const json=await res.json();
-      const zips=(json.tree||[]).filter(x=>/\.zip$/i.test(x.path)&&!/extracted|build|gradle/i.test(x.path)).sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));
-      if(!zips.length) throw new Error('لا يوجد ملف ZIP في مستودع sira-v2');
-      return zips[zips.length-1].path;
-    }
-    async function run(){
-      try{
-        const zipPath=await fetchLatestZipPath();
-        const zipUrl='https://raw.githubusercontent.com/princejour/sira-v2/main/'+zipPath.split('/').map(encodeURIComponent).join('/');
-        const zipBytes=await (await fetch(zipUrl)).arrayBuffer();
-        const zip=await JSZip.loadAsync(zipBytes);
-        const indexPath=Object.keys(zip.files).find(p=>/app\/src\/main\/assets\/index\.html$/i.test(p))||Object.keys(zip.files).find(p=>/(^|\/)index\.html$/i.test(p));
-        if(!indexPath) throw new Error('لم يتم العثور على index.html داخل ZIP');
-        let html=await zip.files[indexPath].async('string');
-        html=patchHtmlSource(html);
-        const frame=document.createElement('iframe');
-        document.body.innerHTML='';
-        document.body.appendChild(frame);
-        frame.srcdoc=html;
-      }catch(e){document.getElementById('m').innerHTML='خطأ في فتح نسخة Firebase:<br>'+String(e.message||e);}
-    }
+    async function fetchLatestZipPath(){const api='https://api.github.com/repos/princejour/sira-v2/git/trees/main?recursive=1';const res=await fetch(api);if(!res.ok)throw new Error('تعذر الاتصال بمستودع sira-v2');const json=await res.json();const zips=(json.tree||[]).filter(x=>/\.zip$/i.test(x.path)&&!/extracted|build|gradle/i.test(x.path)).sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));if(!zips.length)throw new Error('لا يوجد ملف ZIP في مستودع sira-v2');return zips[zips.length-1].path;}
+    async function run(){try{const zipPath=await fetchLatestZipPath();const zipUrl='https://raw.githubusercontent.com/princejour/sira-v2/main/'+zipPath.split('/').map(encodeURIComponent).join('/');const zipBytes=await(await fetch(zipUrl)).arrayBuffer();const zip=await JSZip.loadAsync(zipBytes);const indexPath=Object.keys(zip.files).find(p=>/app\/src\/main\/assets\/index\.html$/i.test(p))||Object.keys(zip.files).find(p=>/(^|\/)index\.html$/i.test(p));if(!indexPath)throw new Error('لم يتم العثور على index.html داخل ZIP');let html=await zip.files[indexPath].async('string');html=patchHtmlSource(html);const frame=document.createElement('iframe');document.body.innerHTML='';document.body.appendChild(frame);frame.srcdoc=html;}catch(e){document.getElementById('m').innerHTML='خطأ في فتح نسخة Firebase:<br>'+String(e.message||e);}}
     run();
   </script>
 </body>
