@@ -36,15 +36,56 @@ def inject_empty_guard(html_text: str) -> str:
         '      });',
         '    }catch(e){}',
         '  }',
+        '  function restoreStudentInfoDefaults(){',
+        '    var birthPlaceKeys = [\'مكان الولادة\',\'مكانها\',\'placeOfBirth\',\'birthPlace\',\'birthplace\',\'birth_location\',\'birthLocation\',\'lieuNaissance\',\'place_naissance\'];',
+        '    var fatherKeys = [\'اسم الأب\',\'اسم الاب\',\'الأب\',\'الاب\',\'fatherName\',\'father\',\'father_name\',\'pere\',\'nomPere\'];',
+        '    var guardianKeys = [\'الولي\',\'اسم الولي\',\'ولي\',\'ولي الأمر\',\'اسم ولي الأمر\',\'guardian\',\'guardianName\',\'wali\',\'parent\',\'parentName\',\'tuteur\',\'responsable\'];',
+        '    function getVal(o, keys){ for(var i=0;i<keys.length;i++){ if(Object.prototype.hasOwnProperty.call(o, keys[i]) && String(o[keys[i]]||\'\').trim()) return String(o[keys[i]]).trim(); } return \"\"; }',
+        '    function setDefault(o, keys, value){',
+        '      var found = false;',
+        '      for(var i=0;i<keys.length;i++){',
+        '        if(Object.prototype.hasOwnProperty.call(o, keys[i])){ found = true; if(!String(o[keys[i]]||\'\').trim()) o[keys[i]] = value; }',
+        '      }',
+        '      if(!found && keys.length) o[keys[0]] = value;',
+        '    }',
+        '    function normalizeRecord(o){',
+        '      if(!o || typeof o !== \"object\" || Array.isArray(o)) return;',
+        '      if(!getVal(o, birthPlaceKeys)) setDefault(o, birthPlaceKeys, \"تونس\");',
+        '      var father = getVal(o, fatherKeys);',
+        '      if(father) setDefault(o, guardianKeys, father);',
+        '    }',
+        '    function walk(v, depth){',
+        '      if(depth > 8 || !v) return v;',
+        '      if(Array.isArray(v)){ v.forEach(function(x){ walk(x, depth+1); }); return v; }',
+        '      if(typeof v === \"object\"){ normalizeRecord(v); Object.keys(v).forEach(function(k){ if(v[k] && typeof v[k] === \"object\") walk(v[k], depth+1); }); }',
+        '      return v;',
+        '    }',
+        '    function normalizeJsonString(text){',
+        '      try{ var obj = JSON.parse(text); walk(obj, 0); return JSON.stringify(obj); }catch(e){ return text; }',
+        '    }',
+        '    try{',
+        '      var keys = [\'studentInfoRecords\',\'importedStudentInfoRecords\',\'personalStudentInfoRecords\',\'studentsInfo\',\'studentInfos\'];',
+        '      keys.forEach(function(k){ var v = localStorage.getItem(k); if(v) localStorage.setItem(k, normalizeJsonString(v)); });',
+        '      if(!Storage.prototype.__siraV2InfoNormalizer){',
+        '        var originalSetItem = Storage.prototype.setItem;',
+        '        Storage.prototype.setItem = function(k, v){',
+        '          try{ if(/student.*info|info.*student|records/i.test(String(k))) v = normalizeJsonString(v); }catch(e){}',
+        '          return originalSetItem.call(this, k, v);',
+        '        };',
+        '        Storage.prototype.__siraV2InfoNormalizer = true;',
+        '      }',
+        '    }catch(e){}',
+        '  }',
         '  clearOnceAfterInstall();',
+        '  restoreStudentInfoDefaults();',
         '  window.__SIRA_V2_EMPTY_IMPORT_ONLY__ = true;',
-        "  window.addEventListener('DOMContentLoaded', removeDefaultClassOptions);",
-        "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); });",
+        "  window.addEventListener('DOMContentLoaded', function(){ removeDefaultClassOptions(); restoreStudentInfoDefaults(); });",
+        "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); setTimeout(restoreStudentInfoDefaults, 300); setTimeout(restoreStudentInfoDefaults, 1200); });",
         '})();',
         '</script>',
     ]
     guard = '\n'.join(guard_lines)
-    if STAMP in html_text:
+    if STAMP in html_text and 'restoreStudentInfoDefaults' in html_text:
         return html_text
     if re.search(r'<head[^>]*>', html_text, flags=re.I):
         return re.sub(
@@ -112,6 +153,7 @@ function getClassLabel''',
     });
     savePersonalClasses(saved);
     saveImportedStudentInfoRecords();
+    if(window.__siraV2NormalizeStudentInfoNow) window.__siraV2NormalizeStudentInfoNow();
     replaceDataWithPersonalClasses();
     refreshClassSelectOptions(Object.keys(saved)[0] || '');
     resetDashboard();
@@ -143,11 +185,11 @@ def bump_gradle_version(root: Path) -> None:
         s = gf.read_text(encoding='utf-8', errors='ignore')
         original = s
         if gf.parent.name == 'app':
-            s = re.sub(r'versionCode\s+\d+', 'versionCode 202', s)
-            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 202', s)
-            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v2"', s)
-            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v2"', s)
-            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v2'", s)
+            s = re.sub(r'versionCode\s+\d+', 'versionCode 203', s)
+            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 203', s)
+            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v3-infofix"', s)
+            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v3-infofix"', s)
+            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v3-infofix'", s)
         if s != original:
             gf.write_text(s, encoding='utf-8')
             print('Updated Gradle version:', gf)
