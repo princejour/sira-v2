@@ -1,183 +1,110 @@
 from pathlib import Path
 import re
 
-STAMP = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_06'
+STAMP = 'SIRA_V2_RICH_IMPORT_CARD_DATA_20260613_01'
+
+RICH_IMPORT_JS = r'''
+<script>
+(function(){
+  var stamp='SIRA_V2_RICH_IMPORT_CARD_DATA_20260613_01';
+  function norm(s){return String(s||'').replace(/[\u064B-\u065F\u0670]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,'').toLowerCase();}
+  function findIndex(headers, aliases){
+    var hh=headers.map(norm);
+    for(var a=0;a<aliases.length;a++){var n=norm(aliases[a]); for(var i=0;i<hh.length;i++){if(hh[i]===n || hh[i].indexOf(n)>=0 || n.indexOf(hh[i])>=0) return i;}}
+    return -1;
+  }
+  function cell(row,i){return i>=0 ? String(row[i]||'').trim() : '';}
+  function makeRecord(cls,name,uid,bdate,bplace,father){
+    bplace=(bplace||'').trim()||'تونس'; father=(father||'').trim(); var wali=father;
+    return {
+      'القسم':cls,'className':cls,'class':cls,
+      'اسم التلميذ':name,'الاسم واللقب':name,'name':name,'studentName':name,
+      'المعرف الوحيد':uid,'معرف وحيد':uid,'uniqueId':uid,'studentId':uid,'identifiantUnique':uid,
+      'تاريخ الولادة':bdate,'birthDate':bdate,'dateNaissance':bdate,
+      'مكان الولادة':bplace,'مكانها':bplace,'مكان الميلاد':bplace,'مكان الازدياد':bplace,'birthPlace':bplace,'placeOfBirth':bplace,'lieuNaissance':bplace,
+      'اسم الأب':father,'اسم الاب':father,'الأب':father,'الاب':father,'fatherName':father,'father':father,'nomPere':father,
+      'الولي':wali,'اسم الولي':wali,'ولي الأمر':wali,'اسم ولي الأمر':wali,'guardianName':wali,'guardian':wali,'parentName':wali,'tuteur':wali
+    };
+  }
+  function parseRichTable(aoa){
+    if(!aoa || !aoa.length) return null;
+    var headers=(aoa[0]||[]).map(function(x){return String(x||'').trim();});
+    var idxCls=findIndex(headers,['القسم','قسم','class','classe']);
+    var idxName=findIndex(headers,['اسم التلميذ','الاسم واللقب','الإسم واللقب','اسم ولقب','الاسم','name','studentName']);
+    if(idxCls<0 || idxName<0) return null;
+    var idxUid=findIndex(headers,['المعرف الوحيد','معرف وحيد','uniqueId','identifiant unique','id unique']);
+    var idxBirth=findIndex(headers,['تاريخ الولادة','تاريخ الميلاد','date naissance','birthDate']);
+    var idxPlace=findIndex(headers,['مكان الولادة','مكان الميلاد','مكان الازدياد','مكانها','lieu naissance','birthPlace','placeOfBirth']);
+    var idxFather=findIndex(headers,['اسم الأب','اسم الاب','الأب','الاب','fatherName','nom pere','pere']);
+    var personal={}, records=[];
+    for(var r=1;r<aoa.length;r++){
+      var row=aoa[r]||[]; var cls=cell(row,idxCls); var name=cell(row,idxName);
+      if(!cls || !name) continue;
+      if(!personal[cls]) personal[cls]=[];
+      if(personal[cls].indexOf(name)<0) personal[cls].push(name);
+      records.push(makeRecord(cls,name,cell(row,idxUid),cell(row,idxBirth),cell(row,idxPlace),cell(row,idxFather)));
+    }
+    return Object.keys(personal).length ? {personal:personal, records:records} : null;
+  }
+  function saveRich(parsed){
+    var personal=parsed.personal, records=parsed.records || [];
+    try{ if(typeof savePersonalClasses==='function') savePersonalClasses(personal); }catch(e){}
+    try{localStorage.setItem('personalClasses',JSON.stringify(personal));localStorage.setItem('importedPersonalClasses',JSON.stringify(personal));}catch(e){}
+    var byName={}, byClassName={};
+    records.forEach(function(r){var n=r['الاسم واللقب'], c=r['القسم']; byName[n]=r; byClassName[c+'|'+n]=r;});
+    ['studentInfoRecords','importedStudentInfoRecords','personalStudentInfoRecords','studentsInfo','studentInfos'].forEach(function(k){try{localStorage.setItem(k,JSON.stringify(records));}catch(e){}});
+    ['studentInfoByName','studentInfosByName','studentCards','studentCardsByName','siraStudentInfo'].forEach(function(k){try{localStorage.setItem(k,JSON.stringify(byName));}catch(e){}});
+    try{localStorage.setItem('studentInfoByClassAndName',JSON.stringify(byClassName));}catch(e){}
+    try{ if(typeof replaceDataWithPersonalClasses==='function') replaceDataWithPersonalClasses(); }catch(e){}
+    try{ if(typeof refreshClassSelectOptions==='function') refreshClassSelectOptions(Object.keys(personal)[0]||''); }catch(e){}
+    try{ if(typeof resetDashboard==='function') resetDashboard(); }catch(e){}
+    try{ if(typeof renderStudentsList==='function') renderStudentsList(); }catch(e){}
+    try{ if(typeof renderPersonalClassesList==='function') renderPersonalClassesList(); }catch(e){}
+    try{ if(typeof clearImportedClassesFile==='function') clearImportedClassesFile(); }catch(e){}
+    try{ if(typeof showToast==='function') showToast('تم استيراد الأقسام ومعطيات بطاقة السيرة بنجاح','success'); }catch(e){ alert('تم استيراد الأقسام ومعطيات بطاقة السيرة بنجاح'); }
+  }
+  function richImport(){
+    var input=document.querySelector('input[type=file]'); var file=input&&input.files&&input.files[0]; if(!file) return false;
+    if(!window.XLSX){return false;}
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        var wb=XLSX.read(ev.target.result,{type:'array'}); var ws=wb.Sheets[wb.SheetNames[0]];
+        var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}); var parsed=parseRichTable(aoa);
+        if(parsed) saveRich(parsed); else if(window.__siraOriginalImportPersonalClassesFile) window.__siraOriginalImportPersonalClassesFile();
+      }catch(err){ if(window.__siraOriginalImportPersonalClassesFile) window.__siraOriginalImportPersonalClassesFile(); }
+    };
+    reader.readAsArrayBuffer(file); return true;
+  }
+  function install(){
+    if(window.__siraRichImportInstalled) return; window.__siraRichImportInstalled=true;
+    window.__siraOriginalImportPersonalClassesFile=window.importPersonalClassesFile;
+    window.importPersonalClassesFile=function(){ if(richImport()) return; if(window.__siraOriginalImportPersonalClassesFile) return window.__siraOriginalImportPersonalClassesFile.apply(this,arguments); };
+    try{importPersonalClassesFile=window.importPersonalClassesFile;}catch(e){}
+    document.addEventListener('click',function(ev){var t=(ev.target&&ev.target.textContent)||''; if(/استيراد وحفظ|استيراد/.test(t)){ if(richImport()){ev.preventDefault();ev.stopPropagation();}}},true);
+  }
+  install(); setTimeout(install,500); setTimeout(install,1500);
+})();
+</script>
+'''
 
 
-def inject_empty_guard(html_text: str) -> str:
-    guard_lines = [
-        '<script>',
-        '(function(){',
-        f"  var stamp = '{STAMP}';",
-        "  var stampKey = '__sira_v2_empty_import_stamp__';",
-        '  function clearOnceAfterInstall(){',
-        '    try{',
-        '      if(localStorage.getItem(stampKey) !== stamp){',
-        '        localStorage.clear();',
-        '        sessionStorage.clear();',
-        '        localStorage.setItem(stampKey, stamp);',
-        "        localStorage.setItem('personalClasses', '{}');",
-        "        localStorage.setItem('importedPersonalClasses', '{}');",
-        "        localStorage.setItem('studentInfoRecords', '[]');",
-        "        localStorage.setItem('importedStudentInfoRecords', '[]');",
-        '      }',
-        '    }catch(e){}',
-        '  }',
-        '  function removeDefaultClassOptions(){',
-        '    try{',
-        r"      var forbidden = /8\s*أساسي\s*(6|7|8|9)|الصف\s*العاشر|تجريبي|افتراضي/i;",
-        "      document.querySelectorAll('option').forEach(function(opt){",
-        "        var text = (opt.textContent || '') + ' ' + (opt.value || '');",
-        '        if(forbidden.test(text)) opt.remove();',
-        '      });',
-        "      document.querySelectorAll('[data-class], .class-card, .student-row, .student-item').forEach(function(el){",
-        "        var text = el.textContent || '';",
-        '        if(forbidden.test(text)) el.remove();',
-        '      });',
-        '    }catch(e){}',
-        '  }',
-        '  function restoreStudentInfoDefaults(){',
-        '    var birthPlaceKeys = [\'مكان الولادة\',\'مكانها\',\'مكان الازدياد\',\'مكان الميلاد\',\'مكان الولادة ومكانها\',\'placeOfBirth\',\'birthPlace\',\'birthplace\',\'birth_location\',\'birthLocation\',\'lieuNaissance\',\'lieu_naissance\',\'place_naissance\'];',
-        '    var fatherKeys = [\'اسم الأب\',\'اسم الاب\',\'إسم الأب\',\'إسم الاب\',\'الأب\',\'الاب\',\'الأب أو الولي\',\'اسم الأب أو الولي\',\'fatherName\',\'father\',\'father_name\',\'pere\',\'père\',\'nomPere\',\'nom_pere\'];',
-        '    var guardianKeys = [\'الولي\',\'اسم الولي\',\'ولي\',\'ولي الأمر\',\'اسم ولي الأمر\',\'الأب أو الولي\',\'اسم الأب أو الولي\',\'guardian\',\'guardianName\',\'guardian_name\',\'wali\',\'parent\',\'parentName\',\'parent_name\',\'tuteur\',\'responsable\'];',
-        '    function getVal(o, keys){ for(var i=0;i<keys.length;i++){ if(Object.prototype.hasOwnProperty.call(o, keys[i]) && String(o[keys[i]]||\'\').trim()) return String(o[keys[i]]).trim(); } return ""; }',
-        '    function setAllDefaults(o, keys, value){',
-        '      for(var i=0;i<keys.length;i++){',
-        '        if(!String(o[keys[i]]||\'\').trim()) o[keys[i]] = value;',
-        '      }',
-        '    }',
-        '    function normalizeRecord(o){',
-        '      if(!o || typeof o !== "object" || Array.isArray(o)) return;',
-        '      if(!getVal(o, birthPlaceKeys)) setAllDefaults(o, birthPlaceKeys, "تونس");',
-        '      var father = getVal(o, fatherKeys);',
-        '      if(father) setAllDefaults(o, guardianKeys, father);',
-        '    }',
-        '    function walk(v, depth){',
-        '      if(depth > 8 || !v) return v;',
-        '      if(Array.isArray(v)){ v.forEach(function(x){ walk(x, depth+1); }); return v; }',
-        '      if(typeof v === "object"){ normalizeRecord(v); Object.keys(v).forEach(function(k){ if(v[k] && typeof v[k] === "object") walk(v[k], depth+1); }); }',
-        '      return v;',
-        '    }',
-        '    function normalizeJsonString(text){',
-        '      try{ var obj = JSON.parse(text); walk(obj, 0); return JSON.stringify(obj); }catch(e){ return text; }',
-        '    }',
-        '    try{',
-        '      var keys = [];',
-        '      for(var i=0;i<localStorage.length;i++){ var k = localStorage.key(i); if(/student|record|info|card|sira|تلميذ|تلاميذ/i.test(String(k))) keys.push(k); }',
-        '      [\'studentInfoRecords\',\'importedStudentInfoRecords\',\'personalStudentInfoRecords\',\'studentsInfo\',\'studentInfos\'].forEach(function(k){ if(keys.indexOf(k)===-1) keys.push(k); });',
-        '      keys.forEach(function(k){ var v = localStorage.getItem(k); if(v) localStorage.setItem(k, normalizeJsonString(v)); });',
-        '      if(!Storage.prototype.__siraV2InfoNormalizer){',
-        '        var originalSetItem = Storage.prototype.setItem;',
-        '        Storage.prototype.setItem = function(k, v){',
-        '          try{ if(/student|record|info|card|sira|تلميذ|تلاميذ/i.test(String(k))) v = normalizeJsonString(v); }catch(e){}',
-        '          return originalSetItem.call(this, k, v);',
-        '        };',
-        '        Storage.prototype.__siraV2InfoNormalizer = true;',
-        '      }',
-        '    }catch(e){}',
-        '  }',
-        '  clearOnceAfterInstall();',
-        '  restoreStudentInfoDefaults();',
-        '  window.__siraV2NormalizeStudentInfoNow = restoreStudentInfoDefaults;',
-        '  window.__SIRA_V2_EMPTY_IMPORT_ONLY__ = true;',
-        "  window.addEventListener('DOMContentLoaded', function(){ removeDefaultClassOptions(); restoreStudentInfoDefaults(); });",
-        "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); setTimeout(restoreStudentInfoDefaults, 300); setTimeout(restoreStudentInfoDefaults, 1200); setTimeout(restoreStudentInfoDefaults, 2500); });",
-        '})();',
-        '</script>',
-    ]
-    guard = '\n'.join(guard_lines)
-    if STAMP in html_text and 'setAllDefaults' in html_text:
+def inject_guard(html_text: str) -> str:
+    if STAMP in html_text:
         return html_text
     if re.search(r'<head[^>]*>', html_text, flags=re.I):
-        return re.sub(
-            r'(<head[^>]*>)',
-            lambda match: match.group(1) + guard,
-            html_text,
-            count=1,
-            flags=re.I,
-        )
-    return guard + html_text
+        return re.sub(r'(<head[^>]*>)', lambda m: m.group(1) + RICH_IMPORT_JS, html_text, count=1, flags=re.I)
+    return RICH_IMPORT_JS + html_text
 
 
 def patch_app_html(path: Path) -> bool:
     s = path.read_text(encoding='utf-8', errors='ignore')
     original = s
 
-    s = re.sub(
-        r'<option\s+value="9">\s*8\s*أساسي\s*9\s*</option>\s*<option\s+value="8">\s*8\s*أساسي\s*8\s*</option>\s*<option\s+value="7">\s*8\s*أساسي\s*7\s*</option>\s*<option\s+value="6">\s*8\s*أساسي\s*6\s*</option>',
-        '',
-        s,
-        flags=re.I,
-    )
-
-    s = s.replace(
-        'const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));',
-        'const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);',
-    )
-
-    s = re.sub(
-        r'function replaceDataWithPersonalClasses\(\)\{.*?\n\}\nfunction getClassLabel',
-        '''function replaceDataWithPersonalClasses(){
-    const personal = getPersonalClasses();
-    Object.keys(data).forEach(k => delete data[k]);
-    Object.keys(personal || {}).forEach(k => {
-        if(!Array.isArray(personal[k]) || personal[k].length === 0) return;
-        const classKey = normalizeClassNameForStorage(k);
-        if(!data[classKey]) data[classKey] = [];
-        personal[k].forEach(studentName => {
-            if(studentName && !data[classKey].includes(studentName)) data[classKey].push(studentName);
-        });
-    });
-    applyStudentRenamesToData();
-}
-function getClassLabel''',
-        s,
-        flags=re.S,
-    )
-
-    s = re.sub(
-        r'function saveImportedPersonalClasses\(personal\)\{.*?\n\}\nfunction importPersonalClassesFile',
-        '''function saveImportedPersonalClasses(personal){
-    const keys = Object.keys(personal || {});
-    if(keys.length === 0){
-        showToast('لم يتم العثور على أقسام وتلاميذ داخل الملف. تأكد من وجود عمود: القسم وعمود: اسم التلميذ','info');
-        return;
-    }
-    const saved = {};
-    keys.forEach(className => {
-        if(!Array.isArray(personal[className])) return;
-        const classKey = normalizeClassNameForStorage(className);
-        if(!saved[classKey]) saved[classKey] = [];
-        personal[className].forEach(studentName => {
-            if(studentName && !saved[classKey].includes(studentName)) saved[classKey].push(studentName);
-        });
-    });
-    savePersonalClasses(saved);
-    try{
-        localStorage.setItem('importedPersonalClasses', JSON.stringify(saved));
-        localStorage.setItem('personalClasses', JSON.stringify(saved));
-    }catch(e){}
-    saveImportedStudentInfoRecords();
-    if(window.__siraV2NormalizeStudentInfoNow) window.__siraV2NormalizeStudentInfoNow();
-    replaceDataWithPersonalClasses();
-    refreshClassSelectOptions(Object.keys(saved)[0] || '');
-    resetDashboard();
-    renderStudentsList();
-    renderPersonalClassesList();
-    clearImportedClassesFile();
-    showToast('تم استبدال كل الأقسام القديمة بالأقسام المستوردة فقط','success');
-}
-function importPersonalClassesFile''',
-        s,
-        flags=re.S,
-    )
-
-    s = s.replace(
-        'setTimeout(autoRestoreWhenEmpty, 1400);',
-        '// Auto restore disabled in empty-import build\n    // setTimeout(autoRestoreWhenEmpty, 1400);',
-    )
-
-    s = inject_empty_guard(s)
+    s = re.sub(r'<option\s+value="9">\s*8\s*أساسي\s*9\s*</option>\s*<option\s+value="8">\s*8\s*أساسي\s*8\s*</option>\s*<option\s+value="7">\s*8\s*أساسي\s*7\s*</option>\s*<option\s+value="6">\s*8\s*أساسي\s*6\s*</option>', '', s, flags=re.I)
+    s = s.replace('const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));', 'const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);')
+    s = s.replace('setTimeout(autoRestoreWhenEmpty, 1400);', '// Auto restore disabled in empty-import build\n    // setTimeout(autoRestoreWhenEmpty, 1400);')
+    s = inject_guard(s)
 
     if s != original:
         path.write_text(s, encoding='utf-8')
@@ -190,11 +117,11 @@ def bump_gradle_version(root: Path) -> None:
         s = gf.read_text(encoding='utf-8', errors='ignore')
         original = s
         if gf.parent.name == 'app':
-            s = re.sub(r'versionCode\s+\d+', 'versionCode 205', s)
-            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 205', s)
-            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v5-card-defaults"', s)
-            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v5-card-defaults"', s)
-            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v5-card-defaults'", s)
+            s = re.sub(r'versionCode\s+\d+', 'versionCode 206', s)
+            s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 206', s)
+            s = re.sub(r'versionName\s+"[^"]+"', 'versionName "empty-import-v6-rich-card-import"', s)
+            s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "empty-import-v6-rich-card-import"', s)
+            s = re.sub(r"versionName\s+'[^']+'", "versionName 'empty-import-v6-rich-card-import'", s)
         if s != original:
             gf.write_text(s, encoding='utf-8')
             print('Updated Gradle version:', gf)
@@ -207,12 +134,9 @@ def main() -> None:
         if patch_app_html(html):
             patched += 1
             print('Patched HTML:', html)
-
     if patched == 0:
-        raise SystemExit('No HTML file was patched; cannot guarantee empty startup')
-
+        raise SystemExit('No HTML file was patched')
     bump_gradle_version(root)
-
 
 if __name__ == '__main__':
     main()
