@@ -18,7 +18,6 @@ jobs:
           set -e
 
           SEARCH_ROOT="$GITHUB_WORKSPACE"
-
           ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name '*.zip' -not -path '*/.git/*' | head -n 1 || true)"
 
           if [ -n "$ZIP_FILE" ]; then
@@ -45,7 +44,7 @@ jobs:
           echo "Projet Gradle trouvé dans: $PROJECT_DIR"
           ls -la "$PROJECT_DIR"
 
-      - name: Forcer démarrage vide et import externe uniquement
+      - name: Forcer demarrage vide et import externe uniquement
         run: |
           set -e
           cd "$PROJECT_DIR"
@@ -53,62 +52,58 @@ jobs:
           from pathlib import Path
           import re
 
-          stamp = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_01'
+          stamp = 'SIRA_V2_EMPTY_IMPORT_ON_INSTALL_20260613_02'
           patched_html = 0
 
-          def inject_empty_guard(html_text: str) -> str:
-              guard = f'''
-<script>
-(function(){{
-  var stamp = '{stamp}';
-  var stampKey = '__sira_v2_empty_import_stamp__';
-
-  function clearOnceAfterInstall(){{
-    try{{
-      if(localStorage.getItem(stampKey) !== stamp){{
-        localStorage.clear();
-        sessionStorage.clear();
-        localStorage.setItem(stampKey, stamp);
-        localStorage.setItem('personalClasses', '{{}}');
-        localStorage.setItem('importedPersonalClasses', '{{}}');
-        localStorage.setItem('studentInfoRecords', '[]');
-        localStorage.setItem('importedStudentInfoRecords', '[]');
-      }}
-    }}catch(e){{}}
-  }}
-
-  function removeDefaultClassOptions(){{
-    try{{
-      var forbidden = /8\s*أساسي\s*(6|7|8|9)|الصف\s*العاشر|تجريبي|افتراضي/i;
-      document.querySelectorAll('option').forEach(function(opt){{
-        var text = (opt.textContent || '') + ' ' + (opt.value || '');
-        if(forbidden.test(text)) opt.remove();
-      }});
-      document.querySelectorAll('[data-class], .class-card, .student-row, .student-item').forEach(function(el){{
-        var text = el.textContent || '';
-        if(forbidden.test(text)) el.remove();
-      }});
-    }}catch(e){{}}
-  }}
-
-  clearOnceAfterInstall();
-  window.__SIRA_V2_EMPTY_IMPORT_ONLY__ = true;
-  window.addEventListener('DOMContentLoaded', removeDefaultClassOptions);
-  window.addEventListener('load', function(){{ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); }});
-}})();
-</script>
-'''
+          def inject_empty_guard(html_text):
+              guard = "\n".join([
+                  "<script>",
+                  "(function(){",
+                  "  var stamp = '" + stamp + "';",
+                  "  var stampKey = '__sira_v2_empty_import_stamp__';",
+                  "  function clearOnceAfterInstall(){",
+                  "    try{",
+                  "      if(localStorage.getItem(stampKey) !== stamp){",
+                  "        localStorage.clear();",
+                  "        sessionStorage.clear();",
+                  "        localStorage.setItem(stampKey, stamp);",
+                  "        localStorage.setItem('personalClasses', '{}');",
+                  "        localStorage.setItem('importedPersonalClasses', '{}');",
+                  "        localStorage.setItem('studentInfoRecords', '[]');",
+                  "        localStorage.setItem('importedStudentInfoRecords', '[]');",
+                  "      }",
+                  "    }catch(e){}",
+                  "  }",
+                  "  function removeDefaultClassOptions(){",
+                  "    try{",
+                  "      var forbidden = /8\\s*أساسي\\s*(6|7|8|9)|الصف\\s*العاشر|تجريبي|افتراضي/i;",
+                  "      document.querySelectorAll('option').forEach(function(opt){",
+                  "        var text = (opt.textContent || '') + ' ' + (opt.value || '');",
+                  "        if(forbidden.test(text)) opt.remove();",
+                  "      });",
+                  "      document.querySelectorAll('[data-class], .class-card, .student-row, .student-item').forEach(function(el){",
+                  "        var text = el.textContent || '';",
+                  "        if(forbidden.test(text)) el.remove();",
+                  "      });",
+                  "    }catch(e){}",
+                  "  }",
+                  "  clearOnceAfterInstall();",
+                  "  window.__SIRA_V2_EMPTY_IMPORT_ONLY__ = true;",
+                  "  window.addEventListener('DOMContentLoaded', removeDefaultClassOptions);",
+                  "  window.addEventListener('load', function(){ setTimeout(removeDefaultClassOptions, 300); setTimeout(removeDefaultClassOptions, 1200); });",
+                  "})();",
+                  "</script>"
+              ])
               if stamp in html_text:
                   return html_text
               if re.search(r'<head[^>]*>', html_text, flags=re.I):
                   return re.sub(r'(<head[^>]*>)', r'\1' + guard, html_text, count=1, flags=re.I)
               return guard + html_text
 
-          def patch_app_html(path: Path) -> bool:
+          def patch_app_html(path):
               s = path.read_text(encoding='utf-8', errors='ignore')
               original = s
 
-              # Remove visible default class choices that were in the trial build.
               s = re.sub(
                   r'<option\s+value="9">\s*8\s*أساسي\s*9\s*</option>\s*<option\s+value="8">\s*8\s*أساسي\s*8\s*</option>\s*<option\s+value="7">\s*8\s*أساسي\s*7\s*</option>\s*<option\s+value="6">\s*8\s*أساسي\s*6\s*</option>',
                   '',
@@ -116,16 +111,14 @@ jobs:
                   flags=re.I
               )
 
-              # Empty the built-in data object immediately after it is copied as original defaults.
               s = s.replace(
                   'const ORIGINAL_DEFAULT_CLASSES = JSON.parse(JSON.stringify(data));',
                   'const ORIGINAL_DEFAULT_CLASSES = {};\nObject.keys(data).forEach(k => delete data[k]);'
               )
 
-              # If the app has a replace function, make imported classes replace all data instead of merging with defaults.
               s = re.sub(
                   r'function replaceDataWithPersonalClasses\(\)\{.*?\n\}\nfunction getClassLabel',
-                  '''function replaceDataWithPersonalClasses(){
+                  """function replaceDataWithPersonalClasses(){
     const personal = getPersonalClasses();
     Object.keys(data).forEach(k => delete data[k]);
     Object.keys(personal || {}).forEach(k => {
@@ -138,15 +131,14 @@ jobs:
     });
     applyStudentRenamesToData();
 }
-function getClassLabel''',
+function getClassLabel""",
                   s,
                   flags=re.S
               )
 
-              # If the app has an import save function, replace old imported/default classes entirely.
               s = re.sub(
                   r'function saveImportedPersonalClasses\(personal\)\{.*?\n\}\nfunction importPersonalClassesFile',
-                  '''function saveImportedPersonalClasses(personal){
+                  """function saveImportedPersonalClasses(personal){
     const keys = Object.keys(personal || {});
     if(keys.length === 0){
         showToast('لم يتم العثور على أقسام وتلاميذ داخل الملف. تأكد من وجود عمود: القسم وعمود: اسم التلميذ','info');
@@ -171,18 +163,16 @@ function getClassLabel''',
     clearImportedClassesFile();
     showToast('تم استبدال كل الأقسام القديمة بالأقسام المستوردة فقط','success');
 }
-function importPersonalClassesFile''',
+function importPersonalClassesFile""",
                   s,
                   flags=re.S
               )
 
-              # Prevent Firebase/local restore from repopulating default trial lists automatically.
               s = s.replace(
                   'setTimeout(autoRestoreWhenEmpty, 1400);',
                   '// Auto restore disabled in empty-import build\n    // setTimeout(autoRestoreWhenEmpty, 1400);'
               )
 
-              # Runtime safety guard: first launch after install/update starts with clean storage.
               s = inject_empty_guard(s)
 
               if s != original:
@@ -198,7 +188,6 @@ function importPersonalClassesFile''',
           if patched_html == 0:
               raise SystemExit('No HTML file was patched; cannot guarantee empty startup')
 
-          # Keep the same applicationId so this APK updates the current app, but force a higher version.
           for gf in list(Path('.').rglob('build.gradle')) + list(Path('.').rglob('build.gradle.kts')):
               s = gf.read_text(encoding='utf-8', errors='ignore')
               original = s
@@ -224,7 +213,7 @@ function importPersonalClassesFile''',
         with:
           gradle-version: 8.10.2
 
-      - name: Générer un APK
+      - name: Generer un APK
         run: |
           set -e
           cd "$PROJECT_DIR"
@@ -236,7 +225,7 @@ function importPersonalClassesFile''',
             gradle assembleDebug
           fi
 
-      - name: Téléverser le fichier APK
+      - name: Televerser le fichier APK
         uses: actions/upload-artifact@v4
         with:
           name: sira2-empty-import-apk
